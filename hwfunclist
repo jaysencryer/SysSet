@@ -1,0 +1,11 @@
+	Init_functions
+AddParallel () 
+RemPower ()
+################################################################################
+	HW_functions
+InstTape ()
+InstUPS () 
+HowManyCards () 
+RunNetInst () 
+GetField () 
+InstNetCard () 

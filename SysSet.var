@@ -1,0 +1,44 @@
+#! /bin/sh
+################################################################################
+g_TEMP=/f2001tmp
+SysFiles=$root_dir/SystemFiles
+ConFiles=$root_dir/Config
+ProgFiles=$g_TEMP/ProgPack
+SYS_VERSION=VOS6.012b1005
+################################################################################
+# 
+# VOS6.010b1005 - 21/10/2005
+#
+#	OpenServer 6 support begun
+#
+# VOS6.011b1005 - 24/10/2005
+#
+#	fixed patch install, Samba install and lsil install
+#	also fixed DNS/DHCP suppresion
+#
+# VOS6.012b1005 - 26/10/2005
+#
+#	Removed lsil, ad320 drivers - uneeded
+#	fixed Samba install
+#
+################################################################################
+# Elements
+################################################################################
+INITIAL_ELEMENTS=initial:power:env:maxexecargs:raidutils
+PATCHES=patches:pm2:oss702a:osr600mp1
+HARDWARE=hardware:tape:UPS:ups:expansion:network:testreboot:ad320:lsil
+OTHERCONF=dns:dhcp:pm2
+SOFTWARE=software:sophos:pm2
+EXTRAS=extra:mtools:lynx:pm2:shutdown:mysql:MySql:vim:VIM:xmlget:samba
+################################################################################
+# Supported cards
+################################################################################
+SUP_NET=D-link:Allied:3com:Realtek
+################################################################################
+# Constants
+################################################################################
+INFO_COL="hi_white black"
+NOT_COL="lt_cyan black"
+ERROR_COL="yellow red"
+OUTPUT_COL="lt_blue black"
+INST_COL="yellow blue"

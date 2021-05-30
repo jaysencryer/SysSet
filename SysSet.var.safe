@@ -1,0 +1,70 @@
+#! /bin/sh
+################################################################################
+g_TEMP=/f2001tmp
+SysFiles=$root_dir/SystemFiles
+ConFiles=$root_dir/Config
+ProgFiles=$g_TEMP/ProgPack
+SYS_VERSION=V3.011b1005
+# for previous versions up to V3 please see versions.txt
+# v3.000b1004 : 12-13/10/2004
+#
+#		Lots of changes 
+#		added Apache directories
+#		Glib for 5.0.7
+#		Sophos version 3.86 October
+#		parallel port in 5.0.7
+#		Also updated Gigabit network detection
+#	
+# v3.001b1004 : 14/10/2004
+#
+#		fixed Gigabit card install
+#		updated dnsdhcp.conf and hardware.conf files
+#		added ad320 driver install
+#		recreated java package
+#
+# v3.002b1004 : 26/10/2004
+#
+#		added 5.0.7 licence pack patch oss656b
+#
+# v3.002b0205 : 18/02/2005
+#		
+#		upgraded Sophos
+#
+# v3.010b1005 : 7/10/2005
+#
+#		added lsil driver install
+#		updated mysql install
+#		updated SOPhos
+#		fixed dns install script
+#
+# v3.011b1005 : 10/10/2005
+#
+#		fixed mysql install
+#		sorted network install test error (checking ifconfig before
+#		reboot)
+#		sorted xmlget so it will run if mysql fails
+#		supressed raidutils output
+#
+################################################################################
+# Elements
+################################################################################
+INITIAL_ELEMENTS=initial:parallel:power:calserver:env:maxexecargs:raidutils
+PATCHES=patches:oss642a:rs506a:oss651a:oss497c:oss600a:rs505A:rs505a:OSRcompat:osrcompat:java:pm2:oss648a:oss650a:oss652a:oss657a:clock:oss656b
+HARDWARE=hardware:tape:UPS:ups:expansion:network:specialix:sx:sixio:testreboot:ad320:lsil
+OTHERCONF=dns:dhcp:dxs:DXS:pm2
+SOFTWARE=software:sophos:apache:visionfs:mta:semaphores:glib:MTA:pm2
+EXTRAS=extra:mtools:lynx:pm2:shutdown:hog:HOG:mysql:MySql:vim:VIM:expect:ghost:gs:GS:ghostscript:xmlget
+PLUGINS=upgrade
+################################################################################
+# Supported cards
+################################################################################
+SUP_SPEC=SX:SX+:SIXIO
+SUP_NET=D-link:Allied:3com:Realtek
+################################################################################
+# Constants
+################################################################################
+INFO_COL="hi_white black"
+NOT_COL="lt_cyan black"
+ERROR_COL="yellow red"
+OUTPUT_COL="lt_blue black"
+INST_COL="yellow blue"

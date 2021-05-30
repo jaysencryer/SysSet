@@ -1,0 +1,164 @@
+#! /bin/sh
+# Main program for SysSet 
+# which is sys_setup V.2
+# V2 alpha 
+# 26/7/2002
+# V2 alpha 1 : changes in SS_functions, SYS5/Software.sh
+# 11/10/2004
+#
+# - re-checking scripting for SysSet v3
+#
+#
+#  from v3.030 - onwards OpenServer 6 support
+
+
+root_dir=/mnt
+export root_dir
+
+#
+# Load up variables and functions
+#
+[ -e $root_dir/SysSet.var ] && { . $root_dir/SysSet.var; }
+[ -e $root_dir/SysSet.fun ] && { . $root_dir/SysSet.fun; }
+
+
+if [ $# = 0 ]; then
+	setcolor $INST_COL
+	echo "You must specify a mode to run SysSet in."
+	echo "-[a,ax,i,ix,c,cx] : refer to manual for full instructions."
+	setcolor -n
+	exit 0
+fi
+
+if [ $1 = "version" -o $1 = "-v" -o $1 = "vers" ]; then
+	echo $SYS_VERSION
+	exit 0
+fi
+
+BannTitle "SYSTEM SETUP"
+[ ! -d $g_TEMP ] && { mkdir $g_TEMP; }
+[ -e $g_TEMP/elements* ] && { rm $g_TEMP/elements*; }
+
+setcolor $INFO_COL
+echo "Version $SYS_VERSION"
+
+
+while [ $# -gt 0 ]
+do
+	#
+	# if $1 is a switch then decide how to act on it
+	#
+	if [ $1 = "-n" ]; then
+		setcolor $INFO_COL
+		echo "\nSorry -n is not a supported switch"
+		exit 0
+	fi
+
+	_Type=`echo $1 | awk -F "-" '{print $2}'`
+
+	if [ $_Type ]; then
+	shift
+	if [ $1 ]; then
+		if [ $1 = "-n" ]; then
+			setcolor $INFO_COL
+			echo "\nSorry -n is not a supported switch"
+			exit 0
+		fi
+	fi	
+	_Next=`echo $1 | awk -F "-" '{print $2}'`
+	setcolor $INFO_COL
+	until [ $_Next ]
+	do
+		case $_Type in
+		"a"|"auto"|"AUTO")
+			echo "Automated mode"
+			sh $root_dir/RunSysSetup AUTO $1 $@
+			[ $? = 1 ] && { exit 0; }
+			;;
+		"i"|"int"|"interactive")
+			echo "Interactive mode"
+			sh $root_dir/RunSysSetup INT $1 $@
+			[ $? = 1 ] && { exit 0; }
+			;;
+		"c"|"check")
+			echo "Check mode"
+			sh $root_dir/RunSysSetup CHK $1 $@
+			[ $? = 1 ] && { exit 0; }
+			;;
+		"ix")
+			echo "Interactive ALL BUT mode"	
+			sh $root_dir/RunSysSetup INTX $1 $@
+			[ $? = 1 ] && { exit 0; }
+			;;
+		"ax")
+			echo "Automated ALL BUT mode"
+			sh $root_dir/RunSysSetup AUTOX $1 $@
+			[ $? = 1 ] && { exit 0; }
+			;;
+		"cx")
+			echo "Check ALL BUT mode"	
+			sh $root_dir/RunSysSetup CHKX $1 $@
+			[ $? = 1 ] && { exit 0; }
+			;;
+		"debug")
+			echo "Debug Mode"
+			sh -x $root_dir/RunSysSetup.dbg AUTO $1 $@
+			[ $? = 1 ] && { exit 0; }
+			;;
+		"p")
+			echo "\nPatch Install\nThis switch is not supported yet."  
+			;;
+		"plug")
+			_plug_name=$1
+			shift
+			_plug_arg=$@
+			echo "\nPlug In : $_plug_name"
+			echo "currently Plug-In's are not supported."
+			echo "if they were we would run : sh $_plug_name $_plug_arg"
+			if [ -e $root_dir/PlugIn/${_plug_name}/${_plug_name}.sh ]; then
+				_plug_dir=$root_dir/PlugIn/${_plug_name}
+			elif [ -e /tmp/$_plug_name/${_plug_name}.sh ]; then
+				_plug_dir=/tmp/$_plug_name
+			elif [ -e /usr/helpline/$_plug_name/${_plug_name}.sh ]; then
+				_plug_dir=/usr/helpline/$_plug_name
+			else
+				echo "Please insert path to plug."
+				read _plug_dir
+				if [ ! -e $_plug_dir/${_plug_name}.sh ]; then
+					echo "No, still can't find it.\nI think it's best for the both of us\nif you just leave!"
+					exit 0
+				fi
+			fi	
+			if [ `grep -c "#!PLUGIN!" $_plug_dir/${_plug_name}.sh` -gt 0 ]; then
+				sh $_plug_dir/${_plug_name}.sh $_plug_arg
+			else
+				echo "This plugin does not conform to plugin design standard."
+			fi
+			exit 0
+			;;
+		* )
+			echo "\nswitch $_Type unsupported"
+			exit 0
+			;;
+		esac
+		if [ $# -gt 0 ]; then
+			shift
+		fi
+		if [ $# = 0 ]; then
+			break
+		else	
+		if [ $1 = "-n" ]; then
+			echo "\nSorry -n is not a supported switch"
+			exit 0
+		fi
+			_Next=`echo $1 | awk -F "-" '{print $2}'`
+		fi
+	done
+	else
+		echo " in Interactive mode"
+		sh $root_dir/RunSysSetup INT $1
+		shift
+	fi
+done
+
+exit 0

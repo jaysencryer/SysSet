@@ -1,0 +1,267 @@
+#! /bin/sh
+#
+# RunSysSetup <RunMode> <any options>
+#	this takes all input from original command line ( minus any switches )
+#	and runs the correct scripts depending on Versions of the OS
+#
+# 31/7/2002	:- re-enabled shutdown, and added instruction to  log in as root.
+
+################################################################################
+RunMode=$1
+Elements=$2
+OtherArgs=$3
+#	This next piece of script, sorts out any reboot problems
+#	see if [ $g_reboot = 1 ] section below.
+if [ "$Elements" -a "$OtherArgs" ]; then
+	shift; shift; shift
+	OtherParams=$@
+fi
+[ -e $root_dir/SysSet.var ] && { . $root_dir/SysSet.var; }
+[ -e $root_dir/SysSet.fun ] && { . $root_dir/SysSet.fun; }
+
+do_a_reboot () {
+#
+# deal with any OtherParams
+# e.g. if we have said SysSet -a initial:hardware:software -i config	
+# 	we dont want to forget to do the -i config
+#	in this example $OtherParams =-i config
+#
+		if [ -s $g_TEMP/elements.list ]; then
+			mv $g_TEMP/elements.list $g_TEMP/elements_before_reboot.list
+			if [ -e $g_TEMP/elements.listX ]; then
+				mv $g_TEMP/elements.listX $g_TEMP/elements_before_reboot.listX
+			fi
+			if [ ! -f /etc/rc.org ]; then
+				cp /etc/rc /etc/rc.org
+			fi
+			if [ `grep -c "SysSet" /etc/rc` = 0 ]; then
+				echo "echo \"****************************************\"" >> /etc/rc
+				echo "echo \"* Log in as root to continue SysSet V2 *\"" >> /etc/rc
+				echo "echo \"****************************************\"" >> /etc/rc
+			fi
+			if [ ! -f /.profile.org ]; then
+				cp /.profile /.profile.org
+			fi
+			echo "cp /etc/rc.org /etc/rc" >> /.profile # moved to top so that if
+								# script is interupted half way through
+								# or requires a second reboot we dont get rc.safe
+								# containing the continue message!
+			echo "mount -r /dev/cd0 /mnt" >> /.profile
+			echo "root_dir=$root_dir; export root_dir" >> /.profile
+			echo "sh $root_dir/RunSysSetup $RunMode" >> /.profile
+			if [ "$OtherParams" ]; then
+				echo "sh $root_dir/SysSet $OtherParams" >> /.profile
+			fi
+			echo "cp /.profile.org /.profile" >> /.profile
+			echo "mv /.profile.org /.profile.alt1" >> /.profile
+			echo "exit 0" >> /.profile
+			cp /.profile $g_TEMP/profile.alt
+		fi
+		/etc/conf/cf.d/link_unix -y
+		setcolor $INST_COL
+		GetAns "Do you wish to shutdown (n)ow, or (l)ater ?" N:now:n:Now Later:later:L:l
+		ans=$?
+		if [ ! $ans = 2 ]; then
+			setcolor $INFO_COL
+			echo "Now shutting down"
+			init 6
+		fi
+		exit 1
+}
+# First Detect Version of OS
+OSVers=`VersionDetect`
+setcolor $INFO_COL
+echo "Using OS version $OSVers"
+g_reboot=0
+export RunMode Elements OSVers g_TEMP root_dir g_reboot
+# Now we best make it easy to know which elements of the script to run
+if [ $Elements ]; then
+	if [ `echo $RunMode | grep -c X` -ne 0 ]; then
+		MakeListFile FULLINSTALL : $g_TEMP/elements.list
+		MakeListFile $Elements : $g_TEMP/elements.listX
+		RunMode=`echo $RunMode | awk -F 'X' '{print $1}'`
+	else
+		MakeListFile $Elements : $g_TEMP/elements.list
+	fi
+else
+	MakeListFile FULLINSTALL $g_TEMP/elements.list
+fi
+
+[ -e $g_TEMP/elements_before_reboot.list ] && {
+	cp $g_TEMP/elements_before_reboot.list $g_TEMP/elements.list
+	rm $g_TEMP/elements_before_reboot.list
+}
+[ -e $g_TEMP/elements_before_reboot.listX ] && {
+	cp $g_TEMP/elements_before_reboot.listX $g_TEMP/elements.listX
+	rm $g_TEMP/elements_before_reboot.listX
+}
+
+InstDir=$root_dir/$OSVers
+Check element Help:HELP:help $g_TEMP/elements.list
+element=$?
+if [ $element = 1 ]; then
+	CreateHelpfile
+	cat $g_TEMP/syssetup.hlp | more
+	ListRemove help:HELP:Help $g_TEMP/elements.list
+fi
+
+Check element version:vers:Version:VERS $g_TEMP/elements.list
+element=$?
+if [ $element = 1 ]; then
+	echo $SYS_VERSION
+	ListRemove version:vers:Version:VERS $g_TEMP/elements.list
+fi
+
+# run scripts
+
+#sh -x $root_dir/Extras/ghost.sh 
+#exit 1
+if [ -d $InstDir ]; then
+	if [ -e $InstDir/Initial.sh ]; then
+		Check element FULLINSTALL:$INITIAL_ELEMENTS $g_TEMP/elements.list
+		result=$?	
+		if [ $result = 1 ]; then
+			> $g_TEMP/Initial.err
+			sh $InstDir/Initial.sh 2> $g_TEMP/Initial.err
+			ReturnState=$?
+			if [ $ReturnState = 1 ]; then
+				setcolor $ERROR_COL
+				echo "Initial.sh aborted with errors!"
+				setcolor -n
+				exit 0	
+			elif [ -s $g_TEMP/Initial.err ]; then
+				setcolor $ERROR_COL
+				echo "There were errors in Initial.sh.  See $g_TEMP/Initial.err for details."
+				setcolor -n
+				exit 0
+			elif [ $ReturnState = 3 ]; then
+				g_reboot=1	
+			fi		
+		fi
+	fi
+	if [ -e $InstDir/Patches.sh ]; then
+		Check element FULLINSTALL:$PATCHES $g_TEMP/elements.list
+		result=$?
+		if [ $result = 1 ]; then
+			> $g_TEMP/Patches.err
+			sh $InstDir/Patches.sh 2> $g_TEMP/Patches.err
+			ReturnState=$?
+			if [ $ReturnState = 1 ]; then
+				setcolor $ERROR_COL
+				echo "Patches.sh aborted with errors!"
+				setcolor -n
+				exit 0
+			elif [ $ReturnState = 3 ]; then
+				g_reboot=1
+			elif [ -s $g_TEMP/Patches.err ]; then
+				setcolor $ERROR_COL
+				echo "There were errors in Patches.sh.  See $g_TEMP/Patches.err for details."
+				setcolor -n
+				exit 0
+			fi
+		fi
+	fi
+	if [ -e $InstDir/Hardware.sh ]; then
+		Check element FULLINSTALL:$HARDWARE $g_TEMP/elements.list
+		result=$?
+		if [ $result = 1 ]; then
+			> $g_TEMP/Hardware.err
+			sh $InstDir/Hardware.sh 2> $g_TEMP/Hardware.err
+			ReturnState=$?
+			if [ $ReturnState = 1 ]; then
+				setcolor $ERROR_COL
+				echo "Hardware.sh aborted with errors!"
+				setcolor -n
+				exit 0
+			elif [ $ReturnState = 3 ]; then
+				g_reboot=1
+			elif [ -s $g_TEMP/Hardware.err ]; then
+				setcolor $ERROR_COL
+				echo "There were errors in Hardware.sh.  See $g_TEMP/Hardware.err for details."
+				setcolor -n
+				exit 0
+			fi
+		fi
+	fi
+	if [ $g_reboot = 1 ]; then
+		do_a_reboot
+	fi
+	if [ -e $InstDir/OtherConf/*.sh ]; then
+		Check element FULLINSTALL:$OTHERCONF $g_TEMP/elements.list
+		element=$?
+		if [ $element = 1 ]; then
+			> $g_TEMP/Other.err
+			for f in `ls $InstDir/OtherConf/*.sh`
+			do
+				if [ -s ${f} ]; then
+					sh ${f} 2> $g_TEMP/Other.err
+				fi
+			done
+		fi
+		if [ -s $g_TEMP/Other.err ]; then
+			setcolor $ERROR_COL
+			echo "There were errors.  See $g_TEMP/Other.err for details."
+			setcolor -n
+			exit 0
+		fi
+	fi
+	if [ -e $InstDir/Software.sh ]; then
+		Check element FULLINSTALL:$SOFTWARE $g_TEMP/elements.list
+		element=$?
+		if [ $element = 1 ]; then
+			> $g_TEMP/Software.err
+			sh $InstDir/Software.sh 2> $g_TEMP/Software.err
+			ReturnState=$?
+			if [ $ReturnState = 1 ]; then
+				setcolor $ERROR_COL
+				echo "Software.sh aborted with errors!"
+				setcolor -n
+				exit 0
+			elif [ $ReturnState = 3 ]; then
+				g_reboot=1
+			elif [ -s $g_TEMP/Software.err ]; then
+				setcolor $ERROR_COL
+				echo "There were errors in Software.sh .  See $g_TEMP/Software.err for details."
+				setcolor -n
+				exit 0
+			fi
+		fi
+	fi
+	if [ -e $root_dir/Extras/*.sh ]; then
+		Check element FULLINSTALL:$EXTRAS $g_TEMP/elements.list
+		element=$?
+		if [ $element = 1 ]; then
+			> $g_TEMP/Extras.err
+			for f in `ls $root_dir/Extras/*.sh`
+			do
+				if [ -s ${f} ]; then
+					sh ${f} 2>> $g_TEMP/Extras.err
+				fi
+			done
+		elif [ -s $g_TEMP/Extras.err ]; then
+			setcolor $ERROR_COL
+			echo "There were errors.  See $g_TEMP/Extras.err for details."
+			setcolor -n
+			exit 0
+		fi
+	fi
+	if [ $g_reboot = 1 ]; then
+		do_a_reboot
+	fi
+#	if [ -e $root_dir/PlugIns/*.sh ]; then
+#		Check element $PLUGINS $g_TEMP/elements.list
+#		element=$?
+#		if [ $element = 1 ]; then
+#		for f in `ls $root_dir/PlugIns/*.sh`
+#		do
+#			if [ -s ${f} ]; then
+#				sh ${f}
+#			fi
+#		done	
+#		fi
+#	fi
+# THIS SECTION OBSOLETE V2.30b08
+	BannTitle "SYSTEM SETUP $SYS_VERSION COMPLETE"
+	_sort_rc=`grep -c "SysSet" /etc/rc`
+	[ $_sort_rc = 1 ] && { cp /etc/rc.org /etc/rc; }
+fi
