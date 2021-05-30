@@ -9,3 +9,8 @@ Some of the scripting in here is now a mystery to me.
 (see -n in SysSet - I REALLY didn't want people to use that as a runtime switch apparently)
 
 Also, some of this stuff may have been built upon scripts that existed before.
+
+To use the script - 
+./SysSet
+
+There was a user manual at some point.
